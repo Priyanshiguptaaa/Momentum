@@ -138,8 +138,15 @@ def get_brief(
     user = db.scalar(select(User).order_by(User.id).limit(1))
     prefs = get_preferences(db)
     target = float(prefs["calorie_target"])
+    maint = prefs.get("estimated_maintenance")
+    rationale = prefs.get("rationale")
     if user is None:
-        return BriefResponse(calorie_target=target, calorie_target_source=prefs["source"])
+        return BriefResponse(
+            calorie_target=target,
+            calorie_target_source=str(prefs.get("source") or "seed_default"),
+            estimated_maintenance=maint,
+            calorie_target_rationale=rationale,
+        )
 
     latest = db.scalar(
         select(DailySummary)
@@ -150,7 +157,9 @@ def get_brief(
     if latest is None:
         return BriefResponse(
             calorie_target=target,
-            calorie_target_source=prefs["source"],
+            calorie_target_source=str(prefs.get("source") or "seed_default"),
+            estimated_maintenance=maint,
+            calorie_target_rationale=rationale,
             patterns=[
                 PhysiologyPatternOut(**pattern_to_dict(p))
                 for p in list_patterns_for_user(db, user.id)
@@ -232,7 +241,9 @@ def get_brief(
     return BriefResponse(
         as_of=latest.date,
         calorie_target=target,
-        calorie_target_source=prefs["source"],
+        calorie_target_source=str(prefs.get("source") or "body_data"),
+        estimated_maintenance=maint,
+        calorie_target_rationale=rationale,
         series=series,
         explanation=explanation,
         reasoning_trace=reasoning_trace,
@@ -292,7 +303,13 @@ def read_preferences(db: Session = Depends(get_db)) -> PreferencesOut:
 )
 def put_preferences(body: PreferencesUpdate, db: Session = Depends(get_db)) -> PreferencesOut:
     try:
-        return PreferencesOut(**update_preferences(db, calorie_target=body.calorie_target))
+        return PreferencesOut(
+            **update_preferences(
+                db,
+                calorie_target=body.calorie_target,
+                mode=body.mode,
+            )
+        )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:

@@ -216,7 +216,9 @@ class BriefDayPoint(BaseModel):
 class BriefResponse(BaseModel):
     as_of: Optional[date] = None
     calorie_target: float
-    calorie_target_source: str = "default"  # user | default
+    calorie_target_source: str = "body_data"
+    estimated_maintenance: Optional[float] = None
+    calorie_target_rationale: Optional[str] = None
     series: list[BriefDayPoint] = Field(default_factory=list)
     explanation: Optional[WeightExplanationResponse] = None
     reasoning_trace: Optional[ReasoningTrace] = None
@@ -230,12 +232,19 @@ class BriefResponse(BaseModel):
 
 class PreferencesOut(BaseModel):
     calorie_target: float
-    source: str = "default"  # user | default
+    source: str = "body_data"
+    mode: str = "auto"
     display_name: Optional[str] = None
+    estimated_maintenance: Optional[float] = None
+    auto_suggested_target: Optional[float] = None
+    confidence: Optional[float] = None
+    rationale: Optional[str] = None
+    energy_plan: Optional[dict[str, Any]] = None
 
 
 class PreferencesUpdate(BaseModel):
-    calorie_target: float = Field(ge=800, le=6000)
+    calorie_target: Optional[float] = Field(default=None, ge=800, le=6000)
+    mode: Optional[str] = None  # "auto" clears manual override
 
 
 class CheckInCreate(BaseModel):

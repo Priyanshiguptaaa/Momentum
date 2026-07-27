@@ -777,12 +777,17 @@
         <button type="button" class="btn" id="saveKey">Save</button>
         <button type="button" class="btn secondary" id="clearKey">Clear</button>
       </div>
-      <label for="calorieTarget" style="margin-top:0.85rem">Daily calorie target (kcal)</label>
+      <label for="calorieTarget" style="margin-top:0.85rem">Calorie target</label>
+      <p class="support" style="margin:0.25rem 0 0.5rem;font-size:12px">
+        Default: <strong>auto from your body</strong> (intake + weight trend + activity).
+        Only set a number to override temporarily.
+      </p>
       <div class="key-row">
-        <input id="calorieTarget" type="number" min="800" max="6000" step="50" placeholder="e.g. 1850" />
-        <button type="button" class="btn" id="saveTarget">Save target</button>
+        <input id="calorieTarget" type="number" min="800" max="6000" step="50" placeholder="Auto from data" />
+        <button type="button" class="btn" id="saveTarget">Override</button>
+        <button type="button" class="btn secondary" id="autoTarget">Use auto</button>
       </div>
-      <p class="support" style="margin:0.4rem 0 0;font-size:12px">Your plan — not hard-coded. Used for adherence and coaching.</p>
+      <p class="support" id="targetRationale" style="margin:0.4rem 0 0;font-size:12px"></p>
       <div class="status" id="keyStatus"></div>
     </div>
 
@@ -988,7 +993,7 @@
       }
       const n = Number(calorieTargetInput.value);
       if (!Number.isFinite(n) || n < 800 || n > 6000) {
-        keyStatus.textContent = "Enter a calorie target between 800 and 6000.";
+        keyStatus.textContent = "Enter a calorie target between 800 and 6000, or tap Use auto.";
         keyStatus.className = "status err";
         return;
       }
@@ -1003,7 +1008,34 @@
         keyStatus.className = "status err";
         return;
       }
-      keyStatus.textContent = "Calorie target saved: " + Math.round(n) + " kcal";
+      keyStatus.textContent = "Manual override: " + Math.round(n) + " kcal";
+      keyStatus.className = "status ok";
+      loadBrief();
+    };
+    document.getElementById("autoTarget").onclick = async () => {
+      const key = apiKey();
+      if (!key) {
+        keyStatus.textContent = "Save your API key first.";
+        keyStatus.className = "status err";
+        return;
+      }
+      const res = await fetch("/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "X-API-Key": key },
+        body: JSON.stringify({ mode: "auto" }),
+      });
+      if (!res.ok) {
+        keyStatus.textContent = "Could not switch to auto.";
+        keyStatus.className = "status err";
+        return;
+      }
+      const data = await res.json();
+      if (calorieTargetInput && data.calorie_target != null) {
+        calorieTargetInput.value = Math.round(data.calorie_target);
+      }
+      const rat = document.getElementById("targetRationale");
+      if (rat) rat.textContent = data.rationale || "Using body-derived target.";
+      keyStatus.textContent = "Auto from your data: ~" + Math.round(data.calorie_target) + " kcal";
       keyStatus.className = "status ok";
       loadBrief();
     };
@@ -1395,10 +1427,15 @@
             <div class="metric"><dt>7-day avg</dt><dd>${fmtKg(s.weight_7d_average)}</dd></div>
             <div class="metric"><dt>Trend / wk</dt><dd>${fmtDelta(s.weight_trend_kg_per_week)}</dd></div>
             <div class="metric"><dt>Target</dt><dd>${Math.round(data.calorie_target)} kcal</dd></div>
+            ${data.estimated_maintenance != null ? `<div class="metric"><dt>Est. maint.</dt><dd>${Math.round(data.estimated_maintenance)} kcal</dd></div>` : ""}
           </dl>
           <p class="support" style="margin:0.75rem 0 0;font-size:12px">
-            Calorie target is your plan${data.calorie_target_source === "user" ? "" : " (default — set yours in ⚙)"}.
-            <button type="button" class="btn secondary" id="editTarget" style="margin-left:0.35rem;font-size:12px;padding:0.25rem 0.55rem">Edit</button>
+            ${data.calorie_target_source === "manual"
+              ? "Manual override"
+              : data.calorie_target_source === "body_data" || data.calorie_target_source === "recent_intake"
+                ? "From your body data"
+                : "Temporary default"} — ${escapeHtml(data.calorie_target_rationale || "Target updates as weight and intake sync.")}
+            <button type="button" class="btn secondary" id="editTarget" style="margin-left:0.35rem;font-size:12px;padding:0.25rem 0.55rem">⚙</button>
           </p>
         </div>
         ${panelHtml || leverageHtml}
@@ -1443,6 +1480,10 @@
 
       if (calorieTargetInput && data.calorie_target != null) {
         calorieTargetInput.value = Math.round(data.calorie_target);
+      }
+      const ratEl = document.getElementById("targetRationale");
+      if (ratEl && data.calorie_target_rationale) {
+        ratEl.textContent = data.calorie_target_rationale;
       }
 
       document.getElementById("editTarget")?.addEventListener("click", () => {

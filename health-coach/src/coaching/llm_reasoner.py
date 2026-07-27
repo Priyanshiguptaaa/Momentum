@@ -170,12 +170,15 @@ def build_evidence_pack(
     try:
         from src.analytics.check_ins import check_in_summary
         from src.analytics.decision_ranker import rank_decision_opportunities
+        from src.coaching.preferences import get_preferences as _get_prefs
 
         check_ins = check_in_summary(db)
         decisions = rank_decision_opportunities(db).model_dump()
+        prefs_pack = _get_prefs(db)
     except Exception:  # noqa: BLE001
         check_ins = {"count": 0}
         decisions = {"opportunities": []}
+        prefs_pack = {"calorie_target": get_calorie_target(db), "source": "seed_default"}
 
     days = [
         {"date": r.date.isoformat(), **_to_metrics(r).model_dump()}
@@ -186,10 +189,12 @@ def build_evidence_pack(
         "user": {"email": user_obj.email, "display_name": user_obj.display_name},
         "anchor_date": today.date.isoformat(),
         "calorie_target_note": (
-            "calorie_target is the user's planned intake target, NOT measured maintenance/TDEE"
+            "calorie_target is inferred from body data (intake + weight trend ± wearables) "
+            "unless manually overridden — not a hardcoded constant."
         ),
         "observation": observation.model_dump(mode="json"),
-        "calorie_target": get_calorie_target(db),
+        "calorie_target": prefs_pack.get("calorie_target") or get_calorie_target(db),
+        "energy_plan": prefs_pack,
         "recent_days": days,
         "personalized_patterns": patterns,
         "interventions": interventions,
