@@ -140,6 +140,24 @@ class HealthAutoExportSyncResult(BaseModel):
     import_batch_id: int
 
 
+class HevySyncResult(BaseModel):
+    source: str = "hevy"
+    hevy_username: Optional[str] = None
+    hevy_workout_count: Optional[int] = None
+    workouts_imported: int
+    workouts_updated: int
+    sets_imported: int
+    strength_measurements_imported: int
+    body_measurements_imported: int = 0
+    exercise_templates_cached: int = 0
+    exercise_history_fetched: int = 0
+    personal_records: list[dict[str, Any]] = Field(default_factory=list)
+    skipped: int
+    summaries_built: int
+    user_id: int
+    import_batch_id: int
+
+
 class ChatAskRequest(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
     thread_id: Optional[int] = None
@@ -228,6 +246,8 @@ class BriefResponse(BaseModel):
     meal_intelligence: Optional["MealIntelligencePack"] = None
     decision_ranking: Optional["DecisionRanking"] = None
     check_in_summary: Optional[dict[str, Any]] = None
+    # True when AI coaching was skipped for speed — client should GET /coaching
+    ai_pending: bool = False
 
 
 class PreferencesOut(BaseModel):

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 # Lower index = higher priority.
 SOURCE_PRIORITY: dict[str, list[str]] = {
-    "weight": ["smart_scale", "manual", "macrofactor", "apple_health", "garmin", "synthetic"],
+    "weight": ["smart_scale", "manual", "macrofactor", "apple_health", "garmin", "hevy", "synthetic"],
     "calories": ["macrofactor", "manual", "synthetic"],
     "protein": ["macrofactor", "manual", "synthetic"],
     "fiber": ["macrofactor", "manual", "synthetic"],
@@ -12,6 +12,7 @@ SOURCE_PRIORITY: dict[str, list[str]] = {
     "steps": ["apple_watch", "garmin", "apple_health", "iphone", "synthetic"],
     "sleep_duration": ["garmin", "apple_watch", "apple_health", "synthetic"],
     "active_energy": ["apple_watch", "garmin", "apple_health", "synthetic"],
+    "strength_minutes": ["hevy", "apple_health", "garmin", "manual", "synthetic"],
 }
 
 

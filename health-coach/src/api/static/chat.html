@@ -102,13 +102,14 @@
       background: transparent;
       color: var(--ink);
       font: inherit;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
-      padding: 0.35rem 0.85rem;
+      padding: 0.35rem 0.5rem;
       border-radius: 7px;
       cursor: pointer;
       transition: background 0.2s, box-shadow 0.2s;
-      min-width: 4.5rem;
+      min-width: 0;
+      flex: 1;
     }
     .nav button.active {
       background: var(--panel);
@@ -751,13 +752,79 @@
       color: var(--muted);
     }
     .checkin-sliders input[type="range"] { width: 100%; }
+    .home-panel { display: none; }
+    .home-panel.active { display: block; }
+    .ai-pending {
+      font-size: 13px;
+      color: var(--muted);
+      padding: 0.75rem;
+      background: var(--fill);
+      border-radius: 10px;
+      margin-bottom: 0.75rem;
+    }
+    .evidence-list {
+      margin: 0.35rem 0 0;
+      padding-left: 1.1rem;
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+    .evidence-list.for li::marker { color: #1b7a3d; }
+    .evidence-list.against li::marker { color: #c2410c; }
+    .analysis-bullets {
+      margin: 0.35rem 0 0;
+      padding-left: 1.1rem;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .analysis-bullets li { margin: 0.25rem 0; }
+    .signal-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.55rem;
+      margin-top: 0.65rem;
+    }
+    @media (min-width: 520px) {
+      .signal-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    .signal-chip {
+      background: var(--fill);
+      border-radius: 10px;
+      padding: 0.55rem 0.65rem;
+    }
+    .signal-chip dt {
+      margin: 0;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+    .signal-chip dd {
+      margin: 0.15rem 0 0;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .signal-note {
+      margin: 0.65rem 0 0;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .data-basis {
+      margin: 0.2rem 0 0;
+      font-size: 11px;
+      color: var(--muted);
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
   <div class="shell">
     <div class="top-bar">
       <nav class="nav" aria-label="Main">
-        <button type="button" class="active" data-view="home" id="navHome">Home</button>
+        <button type="button" class="active" data-view="today" id="navToday">Today</button>
+        <button type="button" data-view="meals" id="navMeals">Meals</button>
+        <button type="button" data-view="body" id="navBody">Body</button>
         <button type="button" data-view="ask" id="navAsk">Ask</button>
       </nav>
       <div class="header-actions">
@@ -791,7 +858,11 @@
       <div class="status" id="keyStatus"></div>
     </div>
 
-    <section id="home" class="view active" aria-label="Morning brief"></section>
+    <section id="home" class="view active" aria-label="Today">
+      <div id="panelToday" class="home-panel active"></div>
+      <div id="panelMeals" class="home-panel" hidden></div>
+      <div id="panelBody" class="home-panel" hidden></div>
+    </section>
 
     <section id="ask" class="view" aria-label="Ask Momentum">
       <div class="ask-tools">
@@ -837,6 +908,11 @@
     const toggleSettings = document.getElementById("toggleSettings");
     const keyStatus = document.getElementById("keyStatus");
     const homeEl = document.getElementById("home");
+    const panelToday = document.getElementById("panelToday");
+    const panelMeals = document.getElementById("panelMeals");
+    const panelBody = document.getElementById("panelBody");
+    let briefData = null;
+    let homeTab = "today";
 
     const HYP_LABELS = {
       normal_measurement_noise: "Normal measurement noise",
@@ -910,17 +986,32 @@
     }
 
     function setView(name) {
-      document.querySelectorAll(".view").forEach((el) => {
-        el.classList.toggle("active", el.id === name);
-      });
+      const isAsk = name === "ask";
+      homeEl.classList.toggle("active", !isAsk);
+      document.getElementById("ask").classList.toggle("active", isAsk);
       document.querySelectorAll(".nav button").forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.view === name);
       });
-      document.getElementById("brandTag").textContent =
-        name === "ask"
-          ? "Ask about your recent evidence."
-          : "Observes. Hypothesizes. Explains.";
-      if (name === "ask") input.focus();
+      if (!isAsk) {
+        homeTab = name;
+        [
+          ["today", panelToday],
+          ["meals", panelMeals],
+          ["body", panelBody],
+        ].forEach(([id, el]) => {
+          const on = id === name;
+          el.classList.toggle("active", on);
+          el.hidden = !on;
+        });
+      }
+      const tags = {
+        today: "Observes. Hypothesizes. Explains.",
+        meals: "What you eat — and how your body responds.",
+        body: "Weight story and physiology patterns.",
+        ask: "Ask about your recent evidence.",
+      };
+      document.getElementById("brandTag").textContent = tags[name] || tags.today;
+      if (isAsk) input.focus();
     }
 
     document.querySelector(".nav").addEventListener("click", (e) => {
@@ -1122,10 +1213,14 @@
     });
 
     function renderHomeEmpty(msg) {
-      homeEl.innerHTML =
+      panelToday.innerHTML =
         '<div class="card empty-home"><h2>Your brief is waiting</h2><p>' +
         escapeHtml(msg) +
         "</p></div>";
+      panelMeals.innerHTML = "";
+      panelBody.innerHTML = "";
+      if (homeTab !== "ask") setView(homeTab);
+      else setView("today");
     }
 
     function buildChart(series) {
@@ -1261,6 +1356,199 @@
         </div>`;
     }
 
+
+    function seriesAvg(series, key) {
+      const vals = (series || []).map((d) => d[key]).filter((v) => v != null && !Number.isNaN(Number(v))).map(Number);
+      if (!vals.length) return null;
+      return vals.reduce((a, b) => a + b, 0) / vals.length;
+    }
+
+    function bulletList(items, cls) {
+      const rows = (items || []).filter(Boolean).map((x) => "<li>" + escapeHtml(x) + "</li>").join("");
+      return rows ? `<ul class="${cls || "analysis-bullets"}">${rows}</ul>` : "";
+    }
+
+    function renderWindowSignals(series, data) {
+      const days = series || [];
+      if (!days.length) return "";
+      const cal = seriesAvg(days, "calories");
+      const protein = seriesAvg(days, "protein_g");
+      const sleep = seriesAvg(days, "sleep_hours");
+      const steps = seriesAvg(days, "steps");
+      const strength = seriesAvg(days, "strength_training_minutes");
+      const restDays = days.filter((d) => d.restaurant_meal).length;
+      const alcDays = days.filter((d) => (d.alcohol_servings || 0) > 0).length;
+      const target = data.calorie_target != null ? Number(data.calorie_target) : null;
+      const calGap = cal != null && target != null ? cal - target : null;
+      const last = days[days.length - 1] || {};
+      const trend = last.weight_trend_kg_per_week;
+      const notes = [];
+      if (calGap != null) {
+        notes.push(Math.abs(calGap) < 75
+          ? "Intake is roughly on target over this window."
+          : (calGap > 0
+            ? "Average intake is ~" + Math.round(calGap) + " kcal above your target."
+            : "Average intake is ~" + Math.round(Math.abs(calGap)) + " kcal under your target."));
+      }
+      if (sleep != null && sleep < 7) notes.push("Sleep is averaging under 7h — recovery risk for hunger and adherence.");
+      if (protein != null && protein < 100) notes.push("Protein average looks low for satiety and lean-mass protection.");
+      if (restDays >= 3) notes.push(restDays + " restaurant days in this window — often a high-leverage adherence lever.");
+      if (trend != null && Math.abs(Number(trend)) < 0.05) notes.push("Weekly trend is near flat — decide whether to hold or tighten one lever.");
+      if (trend != null && Number(trend) > 0.15) notes.push("Upward weekly trend — prioritize deficit adherence or water/sodium noise checks.");
+      if (trend != null && Number(trend) < -0.35) notes.push("Aggressive downward trend — watch energy, hunger, and training quality.");
+      const chip = (label, value) => value == null ? "" : `<div class="signal-chip"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`;
+      return `
+        <div class="card" id="windowSignals">
+          <p class="section-head">Window read · ${days.length} days</p>
+          <p class="support" style="margin:0">What the numbers already say — before the coach narrates.</p>
+          <dl class="signal-grid">
+            ${chip("Avg calories", cal != null ? Math.round(cal) + " kcal" : null)}
+            ${chip("vs target", calGap != null ? ((calGap > 0 ? "+" : "") + Math.round(calGap) + " kcal") : null)}
+            ${chip("Avg protein", protein != null ? Math.round(protein) + " g" : null)}
+            ${chip("Avg sleep", sleep != null ? sleep.toFixed(1) + " h" : null)}
+            ${chip("Avg steps", steps != null ? Math.round(steps).toLocaleString() : null)}
+            ${chip("Strength / day", strength != null ? Math.round(strength) + " min" : null)}
+            ${chip("Restaurant days", String(restDays))}
+            ${chip("Alcohol days", String(alcDays))}
+            ${chip("Trend / wk", trend != null ? fmtDelta(trend) : null)}
+          </dl>
+          ${notes.length ? notes.map((n) => `<p class="signal-note">• ${escapeHtml(n)}</p>`).join("") : ""}
+        </div>`;
+    }
+
+    function renderDecisionRanking(decisions) {
+      decisions = decisions || {};
+      const ops = decisions.opportunities || [];
+      if (!ops.length) return "";
+      const missing = (decisions.missing_for_better || []).slice(0, 4);
+      return `
+        <div class="card" id="decisions">
+          <p class="section-head">Decision ranking</p>
+          <p class="support" style="margin:0 0 0.65rem;font-size:13px">${escapeHtml(decisions.mindset || "Impact × confidence — better than guessing alone.")}</p>
+          <div class="decision-rank">${ops.slice(0, 6).map((o, i) => `
+            <div class="decision-row">
+              <span class="rank">${i + 1}</span>
+              <div>
+                <strong>${escapeHtml(o.label)}</strong>
+                <p style="margin:0.25rem 0 0;color:var(--muted)">${escapeHtml(o.action)}</p>
+                <p style="margin:0.25rem 0 0;font-size:12px;color:var(--muted)">${escapeHtml(o.rationale || "")}</p>
+                ${o.data_basis ? `<p class="data-basis">${escapeHtml(o.data_basis)}</p>` : ""}
+              </div>
+              <div style="text-align:right">
+                <span class="impact impact-${escapeHtml(o.expected_impact || "medium")}">${escapeHtml(o.expected_impact || "?")}</span>
+                <div style="font-size:12px;color:var(--accent);margin-top:0.25rem">${Math.round((o.confidence || 0) * 100)}%</div>
+              </div>
+            </div>`).join("")}</div>
+          ${missing.length ? `<p class="section-head" style="margin-top:0.85rem;font-size:12px">Would sharpen confidence</p>${bulletList(missing)}` : ""}
+        </div>`;
+    }
+
+    function renderReasoningTrace(trace) {
+      if (!trace || !(trace.hypotheses || []).length) return "";
+      const eb = trace.energy_balance || {};
+      const hyps = trace.hypotheses.slice(0, 5).map((h) => {
+        const forList = bulletList(h.evidence_for, "evidence-list for");
+        const againstList = bulletList(h.evidence_against, "evidence-list against");
+        const missing = bulletList(h.missing_information, "evidence-list");
+        return `
+          <div class="hyp-card open" style="cursor:default">
+            <div class="hyp-top">
+              <span class="hyp-name">${escapeHtml(h.title || h.id)}${h.id === trace.primary_hypothesis_id ? " · primary" : ""}</span>
+              <span class="hyp-score">${Math.round((h.probability || 0) * 100)}%</span>
+            </div>
+            <div class="hyp-detail" style="display:block">
+              ${forList ? "<strong>For</strong>" + forList : ""}
+              ${againstList ? "<strong>Against</strong>" + againstList : ""}
+              ${missing ? "<strong>Missing</strong>" + missing : ""}
+              ${h.disconfirm_test ? `<p style="margin:0.45rem 0 0;font-size:13px"><strong>Disconfirm:</strong> ${escapeHtml(h.disconfirm_test)}</p>` : ""}
+            </div>
+          </div>`;
+      }).join("");
+      return `
+        <div class="card hypotheses" id="hypotheses">
+          <p class="section-head">Scientist debate</p>
+          ${trace.recommended_action ? `<p class="coach-story" style="margin:0 0 0.55rem"><strong>Recommended:</strong> ${escapeHtml(trace.recommended_action)}</p>` : ""}
+          ${trace.expected_outcome ? `<p class="support" style="margin:0 0 0.55rem">${escapeHtml(trace.expected_outcome)}</p>` : ""}
+          ${eb.stance ? `<p class="support" style="margin:0 0 0.65rem"><strong>Energy balance:</strong> ${escapeHtml(eb.stance)}${eb.note ? " — " + escapeHtml(eb.note) : ""} (${Math.round((eb.confidence || 0) * 100)}%)</p>` : ""}
+          <div class="hyp-list">${hyps}</div>
+          ${trace.what_would_change_my_mind ? `<p class="signal-note"><strong>Would change my mind:</strong> ${escapeHtml(trace.what_would_change_my_mind)}</p>` : ""}
+          ${(trace.missing_information || []).length ? `<p class="section-head" style="margin-top:0.75rem;font-size:12px">Missing information</p>${bulletList(trace.missing_information)}` : ""}
+        </div>`;
+    }
+
+    function renderMattersNow(c) {
+      c = c || {};
+      const matters = c.what_matters_now || [];
+      const watch = c.watch_outs || [];
+      const friction = c.friction_notes || [];
+      if (!matters.length && !watch.length && !friction.length && !c.recovery_chain) return "";
+      return `
+        <div class="card" id="mattersNow">
+          <p class="section-head">What matters now</p>
+          ${matters.length ? bulletList(matters) : ""}
+          ${c.recovery_chain ? `<p class="coach-story" style="margin-top:0.75rem"><strong>Recovery chain:</strong> ${escapeHtml(c.recovery_chain)}</p>` : ""}
+          ${friction.length ? `<p class="section-head" style="margin-top:0.85rem;font-size:12px">Friction</p>${bulletList(friction)}` : ""}
+          ${watch.length ? `<p class="section-head" style="margin-top:0.85rem;font-size:12px">Watch-outs</p>${bulletList(watch)}` : ""}
+        </div>`;
+    }
+
+    function renderPlateauCard(plateau) {
+      if (!plateau || !plateau.summary) return "";
+      return `
+        <div class="card">
+          <p class="section-head">Plateau check${plateau.confidence != null ? " · " + Math.round(plateau.confidence * 100) + "%" : ""}</p>
+          <p class="coach-story">${escapeHtml(plateau.summary)}</p>
+          ${(plateau.ranked_causes || []).length ? `<p class="section-head" style="margin-top:0.75rem;font-size:12px">Ranked causes</p>${bulletList(plateau.ranked_causes)}` : ""}
+          ${(plateau.ruled_out || []).length ? `<p class="section-head" style="margin-top:0.75rem;font-size:12px">Ruled out</p>${bulletList(plateau.ruled_out)}` : ""}
+          ${(plateau.missing_data || []).length ? `<p class="section-head" style="margin-top:0.75rem;font-size:12px">Missing data</p>${bulletList(plateau.missing_data)}` : ""}
+        </div>`;
+    }
+
+    function renderCoachStory(c) {
+      c = c || {};
+      if (!(c.nutrition_quality_story || c.stuck_story)) return "";
+      return `
+        <div class="card coach-story-block">
+          <p class="section-head">Coach read</p>
+          <p class="coach-story">${escapeHtml(c.nutrition_quality_story || c.stuck_story)}</p>
+          ${c.stuck_story && c.nutrition_quality_story ? `<p class="coach-story" style="margin-top:0.75rem;color:var(--muted)">${escapeHtml(c.stuck_story)}</p>` : ""}
+        </div>`;
+    }
+
+    function renderLeversCard(c) {
+      const levers = (c && c.levers) || [];
+      if (!levers.length) return "";
+      const leversHtml = levers.map((l) => `
+        <div class="lever-row">
+          <div><strong>${escapeHtml(l.label)}</strong><br><span style="color:var(--muted)">${escapeHtml(l.why)}</span></div>
+          <span class="status status-${escapeHtml(l.status || "unknown")}">${escapeHtml(l.status || "?")}</span>
+        </div>`).join("");
+      return `<div class="card"><p class="section-head">Levers</p><div class="lever-grid">${leversHtml}</div></div>`;
+    }
+
+    function renderExperimentsCard(c) {
+      const exps = ((c && c.tomorrow_experiments) || []).slice(0, 3);
+      if (!exps.length) return "";
+      const expHtml = exps.map((e) =>
+        `<p class="rec-line"><strong>${escapeHtml(e.title)}</strong> — ${escapeHtml(e.action)}<br><span style="color:var(--muted)">${escapeHtml(e.how_to_judge)}</span></p>`
+      ).join("");
+      return `<div class="card recs"><p class="section-head">Try next</p>${expHtml}</div>`;
+    }
+
+    function renderLeverageCard(c) {
+      const panelHtml = renderExpertPanel(c && c.expert_panel);
+      if (panelHtml) return panelHtml;
+      const hl = c && c.highest_leverage;
+      if (!(hl && hl.action)) return "";
+      return `
+        <div class="card leverage-card" id="leverage">
+          <h3>Highest leverage · ${escapeHtml(hl.category || "today")}</h3>
+          <p class="action">${escapeHtml(hl.action)}</p>
+          <p class="reason">${escapeHtml(hl.reason || "")}${hl.expected_impact ? " · " + escapeHtml(hl.expected_impact) : ""}</p>
+        </div>`;
+    }
+
+
     function renderBrief(data) {
       if (!data.as_of) {
         renderHomeEmpty("No daily summaries yet. Sync Health Auto Export first.");
@@ -1272,38 +1560,18 @@
       const s = (ex && ex.summary) || {};
       const delta = s.weight_change_from_yesterday_kg;
       const deltaCls = delta == null ? "" : delta > 0.05 ? "up" : delta < -0.05 ? "down" : "";
-      const headline = c.headline || (ex ? hypLabel(ex.primary_hypothesis) : "Your body story");
+      const headline = c.headline
+        || (ex && ex.primary_hypothesis && ex.primary_hypothesis !== "pending_ai"
+          ? hypLabel(ex.primary_hypothesis)
+          : "Your body story");
       const headlineDelta =
         delta == null ? "Latest read" : (delta > 0 ? "+" : "") + Number(delta).toFixed(2) + " kg";
 
-      const panel = c.expert_panel;
-      const panelHtml = renderExpertPanel(panel);
-
-      const hl = c.highest_leverage;
-      const leverageHtml = !panelHtml && hl && hl.action ? `
-        <div class="card leverage-card" id="leverage">
-          <h3>Highest leverage · ${escapeHtml(hl.category || "today")}</h3>
-          <p class="action">${escapeHtml(hl.action)}</p>
-          <p class="reason">${escapeHtml(hl.reason || "")}${hl.expected_impact ? " · " + escapeHtml(hl.expected_impact) : ""}</p>
-        </div>` : "";
-
-      const storyHtml = (c.nutrition_quality_story || c.stuck_story) ? `
-        <div class="card coach-story-block">
-          <p class="section-head">Coach read</p>
-          <p class="coach-story">${escapeHtml(c.nutrition_quality_story || c.stuck_story)}</p>
-          ${c.stuck_story && c.nutrition_quality_story ? `<p class="coach-story" style="margin-top:0.75rem;color:var(--muted)">${escapeHtml(c.stuck_story)}</p>` : ""}
-        </div>` : "";
-
-      const leversHtml = (c.levers || []).map((l) => `
-        <div class="lever-row">
-          <div><strong>${escapeHtml(l.label)}</strong><br><span style="color:var(--muted)">${escapeHtml(l.why)}</span></div>
-          <span class="status status-${escapeHtml(l.status || "unknown")}">${escapeHtml(l.status || "?")}</span>
-        </div>`).join("");
-
-      const expHtml = (c.tomorrow_experiments || []).slice(0, 2).map((e) =>
-        `<p class="rec-line"><strong>${escapeHtml(e.title)}</strong> — ${escapeHtml(e.action)}<br><span style="color:var(--muted)">${escapeHtml(e.how_to_judge)}</span></p>`
-      ).join("");
-
+      const panelHtml = renderLeverageCard(c);
+      const storyHtml = renderCoachStory(c);
+      const leversHtml = renderLeversCard(c);
+      const expHtml = renderExperimentsCard(c);
+      const mattersHtml = renderMattersNow(c);
       const foodRevHtml = (c.food_quality_reviews || []).map((f) => `
         <div class="food-review">
           <strong>${escapeHtml(f.name)}</strong>
@@ -1311,54 +1579,16 @@
           <p style="margin:0.35rem 0;color:var(--muted)">${escapeHtml(f.verdict)}</p>
           ${f.swap_suggestion ? `<p style="margin:0;font-size:13px">Swap: ${escapeHtml(f.swap_suggestion)}</p>` : ""}
         </div>`).join("");
-
-      const trace = data.reasoning_trace;
-      const traceHtml = trace && trace.hypotheses ? `
-        <div class="card hypotheses" id="hypotheses">
-          <p class="section-head">Scientist debate</p>
-          <div class="hyp-list">${trace.hypotheses.slice(0, 4).map((h, idx) => `
-            <div class="hyp-card open" style="cursor:default">
-              <div class="hyp-top">
-                <span class="hyp-name">${escapeHtml(h.title || h.id)}</span>
-                <span class="hyp-score">${Math.round((h.probability || 0) * 100)}%</span>
-              </div>
-              ${idx === 0 && trace.what_would_change_my_mind ? `<p style="font-size:14px;color:var(--muted);margin:0.5rem 0 0">${escapeHtml(trace.what_would_change_my_mind)}</p>` : ""}
-            </div>`).join("")}</div>
-        </div>` : "";
-
-      const plateauHtml = c.plateau && c.plateau.summary ? `
-        <div class="card">
-          <p class="section-head">Plateau check</p>
-          <p class="coach-story">${escapeHtml(c.plateau.summary)}</p>
-          ${(c.plateau.ranked_causes || []).map((x) => `<p class="rec-line">• ${escapeHtml(x)}</p>`).join("")}
-        </div>` : "";
-
+      const traceHtml = renderReasoningTrace(data.reasoning_trace);
+      const plateauHtml = renderPlateauCard(c.plateau);
       const loopsHtml = (c.adherence_loops || []).length ? `
         <div class="card"><p class="section-head">Behavior loops</p>
         ${c.adherence_loops.map((x) => `<p class="rec-line">${escapeHtml(x)}</p>`).join("")}</div>` : "";
-
-      const decisions = data.decision_ranking || {};
-      const decisionHtml = (decisions.opportunities || []).length ? `
-        <div class="card" id="decisions">
-          <p class="section-head">Decision ranking</p>
-          <p class="support" style="margin:0 0 0.65rem;font-size:13px">Impact × confidence — better than guessing alone, not perfect certainty.</p>
-          <div class="decision-rank">${(decisions.opportunities || []).slice(0, 5).map((o, i) => `
-            <div class="decision-row">
-              <span class="rank">${i + 1}</span>
-              <div>
-                <strong>${escapeHtml(o.label)}</strong>
-                <p style="margin:0.25rem 0 0;color:var(--muted)">${escapeHtml(o.action)}</p>
-                <p style="margin:0.25rem 0 0;font-size:12px;color:var(--muted)">${escapeHtml(o.rationale || "")}</p>
-              </div>
-              <div style="text-align:right">
-                <span class="impact impact-${escapeHtml(o.expected_impact || "medium")}">${escapeHtml(o.expected_impact || "?")}</span>
-                <div style="font-size:12px;color:var(--accent);margin-top:0.25rem">${Math.round((o.confidence || 0) * 100)}%</div>
-              </div>
-            </div>`).join("")}</div>
-        </div>` : "";
+      const decisionHtml = renderDecisionRanking(data.decision_ranking);
+      const signalsHtml = renderWindowSignals(data.series || [], data);
 
       const checkSum = data.check_in_summary || {};
-      const checkPatternsHtml = (checkSum.patterns || []).slice(0, 3).map((p) => `
+      const checkPatternsHtml = (checkSum.patterns || []).slice(0, 5).map((p) => `
         <div class="bni-insight">
           <div class="cat">${escapeHtml(p.category || "decision")} · ${Math.round((p.confidence || 0) * 100)}%</div>
           <strong>${escapeHtml(p.title || "")}</strong>
@@ -1394,14 +1624,14 @@
           ${hunger.suggested_action ? `<p class="rec-line" style="margin-top:0.5rem"><strong>Suggest:</strong> ${escapeHtml(hunger.suggested_action)}</p>` : ""}
         </div>` : "";
 
-      const bniPatternsHtml = (bni.patterns || []).slice(0, 4).map((p) => `
+      const bniPatternsHtml = (bni.patterns || []).slice(0, 6).map((p) => `
         <div class="bni-insight">
           <div class="cat">${escapeHtml(p.category || "pattern")} · ${Math.round((p.confidence || 0) * 100)}%</div>
           <strong>${escapeHtml(p.title || "")}</strong>
           <p style="margin:0.35rem 0 0;color:var(--muted)">${escapeHtml(p.insight || "")}</p>
         </div>`).join("");
 
-      const mealReviewsHtml = (bni.meal_reviews || []).slice(0, 3).map((r) => `
+      const mealReviewsHtml = (bni.meal_reviews || []).slice(0, 5).map((r) => `
         <div class="meal-review">
           <strong>${escapeHtml(r.name)}</strong>
           <span style="color:var(--muted)"> · ${r.times_logged || 0} logs
@@ -1422,15 +1652,19 @@
           </div>
         </div>`).join("");
 
-      const patHtml = (data.patterns || []).slice(0, 3).map((p) =>
+      const patHtml = (data.patterns || []).slice(0, 6).map((p) =>
         `<p class="pat-line">${escapeHtml(p.title)}<br><span style="color:var(--muted);font-size:0.86rem">${escapeHtml(p.description)}</span></p>`
       ).join("");
 
-      homeEl.innerHTML = `
+      const pendingHtml = data.ai_pending
+        ? '<p class="ai-pending" id="aiPending">Coach is thinking…</p>'
+        : "";
+
+      const heroHtml = `
         <div class="card hero">
           <p class="as-of">As of ${escapeHtml(String(data.as_of))}</p>
           <h2>${escapeHtml(headlineDelta)}</h2>
-          <p class="support" style="font-size:17px;margin-top:0.35rem">${escapeHtml(headline)}</p>
+          <p class="support" style="font-size:17px;margin-top:0.35rem" id="heroHeadline">${escapeHtml(headline)}</p>
           <div class="hero-actions">
             <button type="button" class="btn" id="askPlateau">Why plateaued?</button>
             <button type="button" class="btn secondary" id="askLeverage">Explain my #1 change</button>
@@ -1451,20 +1685,19 @@
                 : "Temporary default"} — ${escapeHtml(data.calorie_target_rationale || "Target updates as weight and intake sync.")}
             <button type="button" class="btn secondary" id="editTarget" style="margin-left:0.35rem;font-size:12px;padding:0.25rem 0.55rem">⚙</button>
           </p>
-        </div>
-        ${panelHtml || leverageHtml}
-        ${decisionHtml}
+        </div>`;
+
+      panelToday.innerHTML = `
+        ${heroHtml}
+        ${signalsHtml}
+        <div id="coachSlot">${pendingHtml}${panelHtml}${mattersHtml}${storyHtml}${decisionHtml}${leversHtml}${expHtml}${traceHtml}${plateauHtml}</div>
         ${checkInCard}
+      `;
+
+      panelMeals.innerHTML = `
         ${hungerHtml}
-        ${storyHtml}
         ${bniPatternsHtml ? `<div class="card"><p class="section-head">Meal pattern intelligence</p>${bniPatternsHtml}</div>` : ""}
-        ${leversHtml ? `<div class="card"><p class="section-head">Levers</p><div class="lever-grid">${leversHtml}</div></div>` : ""}
-        <div class="card chart-block"><p class="section-head">Weight story</p>${buildChart(data.series || [])}</div>
-        ${expHtml ? `<div class="card recs"><p class="section-head">Try tomorrow</p>${expHtml}</div>` : ""}
-        ${traceHtml}
-        ${plateauHtml}
-        ${loopsHtml}
-        ${foodRevHtml ? `<div class="card"><p class="section-head">Food quality</p>${foodRevHtml}</div>` : ""}
+        <div id="foodQualitySlot">${foodRevHtml ? `<div class="card"><p class="section-head">Food quality</p>${foodRevHtml}</div>` : ""}</div>
         ${mealReviewsHtml ? `<div class="card"><p class="section-head">Meal reviews</p>${mealReviewsHtml}</div>` : ""}
         <div class="card" id="meals">
           <p class="section-head">My Meals</p>
@@ -1489,32 +1722,116 @@
             <button type="submit" class="btn">Log event</button>
           </form>
         </div>
+      `;
+
+      panelBody.innerHTML = `
+        <div class="card chart-block"><p class="section-head">Weight story</p>${buildChart(data.series || [])}</div>
+        <div id="bodyCoachSlot">${plateauHtml}${loopsHtml}</div>
         ${patHtml ? `<div class="card patterns"><p class="section-head">Your patterns</p>${patHtml}</div>` : ""}
       `;
 
-      if (calorieTargetInput && data.calorie_target != null) {
-        calorieTargetInput.value = Math.round(data.calorie_target);
+      briefData = data;
+      wireBriefHandlers(data);
+      setView(homeTab === "ask" ? "today" : homeTab);
+
+      if (data.ai_pending) {
+        loadCoaching(data.as_of);
+      } else {
+        wireCoachHandlers(data);
       }
-      const ratEl = document.getElementById("targetRationale");
-      if (ratEl && data.calorie_target_rationale) {
-        ratEl.textContent = data.calorie_target_rationale;
+    }
+
+    function coachBlocksHtml(c, data) {
+      const loopsHtml = (c.adherence_loops || []).length ? `
+        <div class="card"><p class="section-head">Behavior loops</p>
+        ${c.adherence_loops.map((x) => `<p class="rec-line">${escapeHtml(x)}</p>`).join("")}</div>` : "";
+      return {
+        today: [
+          renderLeverageCard(c),
+          renderMattersNow(c),
+          renderCoachStory(c),
+          renderDecisionRanking(data && data.decision_ranking),
+          renderLeversCard(c),
+          renderExperimentsCard(c),
+          renderReasoningTrace(data && data.reasoning_trace),
+          renderPlateauCard(c.plateau),
+        ].join(""),
+        body: `${renderPlateauCard(c.plateau)}${loopsHtml}`,
+        headline: c.headline || null,
+        foodHtml: (c.food_quality_reviews || []).length ? (c.food_quality_reviews || []).map((f) => `
+          <div class="food-review">
+            <strong>${escapeHtml(f.name)}</strong>
+            ${f.satiety_score ? `<span class="satiety"> · satiety ${f.satiety_score}/10</span>` : ""}
+            <p style="margin:0.35rem 0;color:var(--muted)">${escapeHtml(f.verdict)}</p>
+            ${f.swap_suggestion ? `<p style="margin:0;font-size:13px">Swap: ${escapeHtml(f.swap_suggestion)}</p>` : ""}
+          </div>`).join("") : "",
+      };
+    }
+
+    function applyCoaching(c, data) {
+      const blocks = coachBlocksHtml(c, data);
+      const slot = document.getElementById("coachSlot");
+      if (slot) {
+        slot.innerHTML = blocks.today || '<p class="ai-pending">No coaching yet — ask a question or sync more days.</p>';
       }
+      const bodySlot = document.getElementById("bodyCoachSlot");
+      if (bodySlot) bodySlot.innerHTML = blocks.body || "";
+      if (blocks.headline) {
+        const h = document.getElementById("heroHeadline");
+        if (h) h.textContent = blocks.headline;
+      }
+      if (blocks.foodHtml) {
+        const foodSlot = document.getElementById("foodQualitySlot");
+        if (foodSlot) {
+          foodSlot.innerHTML = `<div class="card"><p class="section-head">Food quality</p>${blocks.foodHtml}</div>`;
+        }
+      }
+      wireCoachHandlers(Object.assign({}, data || {}, { coaching: c }));
+    }
 
-      document.getElementById("editTarget")?.addEventListener("click", () => {
-        settings.classList.add("open");
-        toggleSettings.setAttribute("aria-expanded", "true");
-        calorieTargetInput?.focus();
-      });
+    async function loadCoaching(asOf) {
+      const key = apiKey();
+      if (!key) return;
+      try {
+        const coachRes = await fetch("/coaching", { headers: { "X-API-Key": key } });
+        const coaching = coachRes.ok ? await coachRes.json() : null;
+        if (!coaching) {
+          const slot = document.getElementById("coachSlot");
+          if (slot) slot.innerHTML = '<p class="ai-pending">Could not load coaching. Refresh to retry.</p>';
+          return;
+        }
+        if (briefData) {
+          briefData.coaching = coaching;
+          briefData.ai_pending = false;
+        }
+        applyCoaching(coaching, briefData || {});
+      } catch (err) {
+        const slot = document.getElementById("coachSlot");
+        if (slot) slot.innerHTML = '<p class="ai-pending">' + escapeHtml(String(err)) + "</p>";
+        return;
+      }
+      if (asOf) loadReasoningTrace(asOf);
+    }
 
-      document.getElementById("askPlateau")?.addEventListener("click", () => {
-        ask("Why have I plateaued? Investigate calories, trend, water, training, sleep, sodium, fiber, restaurants, adherence — ranked causes.");
-      });
-      document.getElementById("askLeverage")?.addEventListener("click", () => {
-        const exp = panel && panel.synthesis && panel.synthesis.selected_experiment;
-        const a = exp && exp.action ? exp.action : (hl && hl.action ? hl.action : "my highest-leverage experiment");
-        ask("Walk me through why " + a + " is the best next experiment for me — general evidence, coaching heuristics, and my personal data.");
-      });
+    async function loadReasoningTrace(asOf) {
+      const key = apiKey();
+      if (!key || !asOf) return;
+      try {
+        const traceRes = await fetch("/reasoning-trace/" + asOf, { headers: { "X-API-Key": key } });
+        if (!traceRes.ok) return;
+        const trace = await traceRes.json().catch(() => null);
+        if (!trace) return;
+        if (briefData) briefData.reasoning_trace = trace;
+        const activeCoaching = (briefData && briefData.coaching) || null;
+        if (activeCoaching) applyCoaching(activeCoaching, briefData || { reasoning_trace: trace });
+      } catch (_) {
+        // Trace is secondary; keep UI responsive even if this fails.
+      }
+    }
 
+    function wireCoachHandlers(data) {
+      const c = (data && data.coaching) || {};
+      const panel = c.expert_panel;
       document.getElementById("startExperiment")?.addEventListener("click", async () => {
         const exp = panel && panel.synthesis && panel.synthesis.selected_experiment;
         const key = apiKey();
@@ -1535,13 +1852,41 @@
         if (res.ok) addMsg("Experiment started: " + exp.action, "meta");
         else addMsg("Could not start experiment.", "error");
       });
-
       homeEl.querySelectorAll(".expert-brain").forEach((btn) => {
         btn.addEventListener("click", () => {
           const was = btn.classList.contains("open");
           homeEl.querySelectorAll(".expert-brain").forEach((b) => b.classList.remove("open"));
           if (!was) btn.classList.add("open");
         });
+      });
+    }
+
+    function wireBriefHandlers(data) {
+      if (calorieTargetInput && data.calorie_target != null) {
+        calorieTargetInput.value = Math.round(data.calorie_target);
+      }
+      const ratEl = document.getElementById("targetRationale");
+      if (ratEl && data.calorie_target_rationale) {
+        ratEl.textContent = data.calorie_target_rationale;
+      }
+
+      document.getElementById("editTarget")?.addEventListener("click", () => {
+        settings.classList.add("open");
+        toggleSettings.setAttribute("aria-expanded", "true");
+        calorieTargetInput?.focus();
+      });
+
+      document.getElementById("askPlateau")?.addEventListener("click", () => {
+        ask("Why have I plateaued? Investigate calories, trend, water, training, sleep, sodium, fiber, restaurants, adherence — ranked causes.");
+      });
+
+      document.getElementById("askLeverage")?.addEventListener("click", () => {
+        const c = (briefData && briefData.coaching) || {};
+        const panel = c.expert_panel;
+        const exp = panel && panel.synthesis && panel.synthesis.selected_experiment;
+        const hl = c.highest_leverage;
+        const a = exp && exp.action ? exp.action : (hl && hl.action ? hl.action : "my highest-leverage experiment");
+        ask("Walk me through why " + a + " is the best next experiment for me — general evidence, coaching heuristics, and my personal data.");
       });
 
       document.getElementById("mealForm")?.addEventListener("submit", async (e) => {
@@ -1660,7 +2005,9 @@
         renderHomeEmpty("Open ⚙ and save your sync API key to start.");
         return;
       }
-      homeEl.innerHTML = '<div class="card empty-home"><p>Loading your brief…</p></div>';
+      panelToday.innerHTML = '<div class="card empty-home"><p>Loading your brief…</p></div>';
+      panelMeals.innerHTML = "";
+      panelBody.innerHTML = "";
       try {
         const res = await fetch("/brief?days=14", {
           headers: { "X-API-Key": apiKey() },
@@ -1678,6 +2025,7 @@
         renderHomeEmpty(String(err));
       }
     }
+
 
     refreshKeyStatus();
     if (hasKey()) {

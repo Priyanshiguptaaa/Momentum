@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     sync_api_key: str = ""
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
+    # Hevy Pro developer key from https://hevy.com/settings?developer
+    hevy_api_key: str = ""
+    # Optional nightly Hevy auto-sync (server local time).
+    hevy_auto_sync_enabled: bool = False
+    hevy_auto_sync_hour: int = 2
+    hevy_auto_sync_minute: int = 0
     # llm = model debates from evidence pack; statistical = rule engine only
     reasoning_mode: str = "llm"
 

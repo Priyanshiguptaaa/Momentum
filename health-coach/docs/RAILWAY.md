@@ -19,6 +19,10 @@ Set these in Railway → Variables (do not commit secrets):
 HC_SYNC_API_KEY=<same key as Health Auto Export>
 HC_OPENAI_API_KEY=<your OpenAI key>
 HC_OPENAI_MODEL=gpt-4o-mini
+HC_HEVY_API_KEY=<Hevy Pro key from https://hevy.com/settings?developer>
+HC_HEVY_AUTO_SYNC_ENABLED=true
+HC_HEVY_AUTO_SYNC_HOUR=2
+HC_HEVY_AUTO_SYNC_MINUTE=0
 HC_DATABASE_URL=sqlite:////data/health_coach.db
 HC_DEFAULT_USER_EMAIL=demo@healthcoach.local
 HC_DEFAULT_USER_NAME=Demo User
@@ -26,6 +30,8 @@ HC_CALORIE_TARGET=1700
 ```
 
 `HC_CALORIE_TARGET` is only a **seed default**. The app prefers a target inferred from your body data (intake + weight trend). Override in the UI only if you want.
+
+Nightly Hevy sync runs in **server local time** when `HC_HEVY_AUTO_SYNC_ENABLED=true`.
 
 `PORT` is provided by Railway automatically.
 
@@ -38,6 +44,8 @@ Public URL example: `https://YOUR_SERVICE.up.railway.app`
 | Health check | `GET /health` |
 | Chat UI | `https://YOUR_SERVICE.up.railway.app/chat` |
 | HAE sync | `https://YOUR_SERVICE.up.railway.app/sync/health-auto-export` |
+| Hevy sync | `POST /sync/hevy` (needs `HC_HEVY_API_KEY` + `X-API-Key`) |
+| Hevy account check | `GET /sync/hevy/account` |
 
 In Health Auto Export, set the sync URL to the HTTPS sync endpoint and keep header `X-API-Key`.
 

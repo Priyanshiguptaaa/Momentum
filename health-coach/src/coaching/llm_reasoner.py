@@ -318,34 +318,44 @@ def llm_build_reasoning_trace(
     question: str | None = None,
 ) -> ReasoningTrace:
     """Primary path: LLM debates from evidence. Falls back to statistical trace if needed."""
+    from src.coaching.cache import cached
+
     evidence = build_evidence_pack(db, target, user_id=user_id)
+    anchor = str(evidence.get("anchor_date") or target or "na")
+    # Don't cache Q&A traces (chat); only cache standard daily debate.
+    use_cache = not question
 
-    if not settings.openai_api_key or settings.reasoning_mode == "statistical":
-        return _statistical_fallback(db, target, user_id=user_id)
+    def _build() -> ReasoningTrace:
+        if not settings.openai_api_key or settings.reasoning_mode == "statistical":
+            return _statistical_fallback(db, target, user_id=user_id)
 
-    payload = {
-        "question": question or "Explain today's weight change and whether the plan should change.",
-        "evidence_pack": evidence,
-    }
-    client = OpenAI(api_key=settings.openai_api_key)
-    completion = client.chat.completions.create(
-        model=settings.openai_model,
-        temperature=0.5,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": REASONER_SYSTEM},
-            {"role": "user", "content": json.dumps(payload, default=str)},
-        ],
-    )
-    text = _strip_json(completion.choices[0].message.content or "")
-    try:
-        raw = json.loads(text)
-        if not isinstance(raw, dict):
-            raise ValueError("not an object")
-        return _parse_trace(raw, evidence)
-    except Exception:
-        # Grounded fallback so the product never hard-fails.
-        return _statistical_fallback(db, target, user_id=user_id)
+        payload = {
+            "question": question
+            or "Explain today's weight change and whether the plan should change.",
+            "evidence_pack": evidence,
+        }
+        client = OpenAI(api_key=settings.openai_api_key)
+        completion = client.chat.completions.create(
+            model=settings.openai_model,
+            temperature=0.5,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": REASONER_SYSTEM},
+                {"role": "user", "content": json.dumps(payload, default=str)},
+            ],
+        )
+        text = _strip_json(completion.choices[0].message.content or "")
+        try:
+            raw = json.loads(text)
+            if not isinstance(raw, dict):
+                raise ValueError("not an object")
+            return _parse_trace(raw, evidence)
+        except Exception:
+            return _statistical_fallback(db, target, user_id=user_id)
+
+    if use_cache:
+        return cached(f"trace:{anchor}", _build, ttl_seconds=3600)
+    return _build()
 
 
 def _statistical_fallback(

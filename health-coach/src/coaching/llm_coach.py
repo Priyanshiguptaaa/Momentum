@@ -307,49 +307,59 @@ def _parse_pack(raw: dict[str, Any], db: Session) -> CoachingPack:
 
 
 def build_coaching_pack(db: Session, *, include_diet: bool = True) -> CoachingPack:
-    if not settings.openai_api_key:
-        return _fallback_pack()
+    from src.coaching.cache import cached
+    from src.coaching.food_staples import list_food_staples, staple_to_dict
+
     try:
         evidence = build_evidence_pack(db)
+        anchor = str(evidence.get("anchor_date") or "na")
     except LookupError:
         return _fallback_pack()
 
-    try:
-        from src.analytics.check_ins import check_in_summary
-        from src.analytics.decision_ranker import rank_decision_opportunities
-        from src.analytics.meal_intelligence import build_bni_pack
+    cache_key = f"coaching:{anchor}:diet={int(include_diet)}"
 
-        meal_intelligence = build_bni_pack(db)
-        check_ins_pack = check_in_summary(db)
-        decisions = rank_decision_opportunities(db).model_dump()
-    except Exception:  # noqa: BLE001
-        meal_intelligence = {}
-        check_ins_pack = {}
-        decisions = {}
-    payload = {
-        "evidence_pack": evidence,
-        "food_staples": staples,
-        "meal_intelligence": meal_intelligence,
-        "check_ins": check_ins_pack,
-        "decision_ranking": decisions,
-        "include_diet_sketch": include_diet,
-        "calorie_target": get_calorie_target(db),
-        "coaching_mode": "decision_quality_optimizer",
-    }
-    client = OpenAI(api_key=settings.openai_api_key)
-    completion = client.chat.completions.create(
-        model=settings.openai_model,
-        temperature=0.55,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": COACH_SYSTEM},
-            {"role": "user", "content": json.dumps(payload, default=str)},
-        ],
-    )
-    raw = json.loads(_strip_json(completion.choices[0].message.content or "{}"))
-    if not isinstance(raw, dict):
-        return _fallback_pack()
-    return _parse_pack(raw, db)
+    def _build() -> CoachingPack:
+        if not settings.openai_api_key:
+            return _fallback_pack()
+        staples = [staple_to_dict(s) for s in list_food_staples(db)]
+        try:
+            from src.analytics.check_ins import check_in_summary
+            from src.analytics.decision_ranker import rank_decision_opportunities
+            from src.analytics.meal_intelligence import build_bni_pack
+
+            meal_intelligence = build_bni_pack(db)
+            check_ins_pack = check_in_summary(db)
+            decisions = rank_decision_opportunities(db).model_dump()
+        except Exception:  # noqa: BLE001
+            meal_intelligence = {}
+            check_ins_pack = {}
+            decisions = {}
+        payload = {
+            "evidence_pack": evidence,
+            "food_staples": staples,
+            "meal_intelligence": meal_intelligence,
+            "check_ins": check_ins_pack,
+            "decision_ranking": decisions,
+            "include_diet_sketch": include_diet,
+            "calorie_target": get_calorie_target(db),
+            "coaching_mode": "decision_quality_optimizer",
+        }
+        client = OpenAI(api_key=settings.openai_api_key)
+        completion = client.chat.completions.create(
+            model=settings.openai_model,
+            temperature=0.55,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": COACH_SYSTEM},
+                {"role": "user", "content": json.dumps(payload, default=str)},
+            ],
+        )
+        raw = json.loads(_strip_json(completion.choices[0].message.content or "{}"))
+        if not isinstance(raw, dict):
+            return _fallback_pack()
+        return _parse_pack(raw, db)
+
+    return cached(cache_key, _build, ttl_seconds=3600)
 
 
 def build_plateau_investigation(db: Session) -> PlateauInvestigation:
