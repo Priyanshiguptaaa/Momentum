@@ -777,6 +777,12 @@
         <button type="button" class="btn" id="saveKey">Save</button>
         <button type="button" class="btn secondary" id="clearKey">Clear</button>
       </div>
+      <label for="calorieTarget" style="margin-top:0.85rem">Daily calorie target (kcal)</label>
+      <div class="key-row">
+        <input id="calorieTarget" type="number" min="800" max="6000" step="50" placeholder="e.g. 1850" />
+        <button type="button" class="btn" id="saveTarget">Save target</button>
+      </div>
+      <p class="support" style="margin:0.4rem 0 0;font-size:12px">Your plan — not hard-coded. Used for adherence and coaching.</p>
       <div class="status" id="keyStatus"></div>
     </div>
 
@@ -805,6 +811,7 @@
     const THREAD = "momentum_chat_thread_id";
     const messages = document.getElementById("messages");
     const apiKeyInput = document.getElementById("apiKey");
+    const calorieTargetInput = document.getElementById("calorieTarget");
     const input = document.getElementById("input");
     const sendBtn = document.getElementById("send");
     const settings = document.getElementById("settings");
@@ -971,6 +978,34 @@
       refreshKeyStatus();
       renderHomeEmpty("Save your sync API key to load your morning brief.");
       addMsg("API key cleared.", "meta");
+    };
+    document.getElementById("saveTarget").onclick = async () => {
+      const key = apiKey();
+      if (!key) {
+        keyStatus.textContent = "Save your API key first.";
+        keyStatus.className = "status err";
+        return;
+      }
+      const n = Number(calorieTargetInput.value);
+      if (!Number.isFinite(n) || n < 800 || n > 6000) {
+        keyStatus.textContent = "Enter a calorie target between 800 and 6000.";
+        keyStatus.className = "status err";
+        return;
+      }
+      const res = await fetch("/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "X-API-Key": key },
+        body: JSON.stringify({ calorie_target: n }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        keyStatus.textContent = data.detail || "Could not save target.";
+        keyStatus.className = "status err";
+        return;
+      }
+      keyStatus.textContent = "Calorie target saved: " + Math.round(n) + " kcal";
+      keyStatus.className = "status ok";
+      loadBrief();
     };
 
     function autosize() {
@@ -1361,6 +1396,10 @@
             <div class="metric"><dt>Trend / wk</dt><dd>${fmtDelta(s.weight_trend_kg_per_week)}</dd></div>
             <div class="metric"><dt>Target</dt><dd>${Math.round(data.calorie_target)} kcal</dd></div>
           </dl>
+          <p class="support" style="margin:0.75rem 0 0;font-size:12px">
+            Calorie target is your plan${data.calorie_target_source === "user" ? "" : " (default — set yours in ⚙)"}.
+            <button type="button" class="btn secondary" id="editTarget" style="margin-left:0.35rem;font-size:12px;padding:0.25rem 0.55rem">Edit</button>
+          </p>
         </div>
         ${panelHtml || leverageHtml}
         ${decisionHtml}
@@ -1401,6 +1440,16 @@
         </div>
         ${patHtml ? `<div class="card patterns"><p class="section-head">Your patterns</p>${patHtml}</div>` : ""}
       `;
+
+      if (calorieTargetInput && data.calorie_target != null) {
+        calorieTargetInput.value = Math.round(data.calorie_target);
+      }
+
+      document.getElementById("editTarget")?.addEventListener("click", () => {
+        settings.classList.add("open");
+        toggleSettings.setAttribute("aria-expanded", "true");
+        calorieTargetInput?.focus();
+      });
 
       document.getElementById("askPlateau")?.addEventListener("click", () => {
         ask("Why have I plateaued? Investigate calories, trend, water, training, sleep, sodium, fiber, restaurants, adherence — ranked causes.");

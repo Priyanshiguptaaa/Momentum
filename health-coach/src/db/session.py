@@ -53,6 +53,10 @@ def init_db(url: str | None = None) -> None:
     if str(target_engine.url).startswith("sqlite"):
         with target_engine.begin() as conn:
             inspector = inspect(conn)
+            if "users" in inspector.get_table_names():
+                cols = {c["name"] for c in inspector.get_columns("users")}
+                if "calorie_target" not in cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN calorie_target FLOAT"))
             if "food_staples" in inspector.get_table_names():
                 cols = {c["name"] for c in inspector.get_columns("food_staples")}
                 if "learned_profile" not in cols:

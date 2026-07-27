@@ -216,6 +216,7 @@ class BriefDayPoint(BaseModel):
 class BriefResponse(BaseModel):
     as_of: Optional[date] = None
     calorie_target: float
+    calorie_target_source: str = "default"  # user | default
     series: list[BriefDayPoint] = Field(default_factory=list)
     explanation: Optional[WeightExplanationResponse] = None
     reasoning_trace: Optional[ReasoningTrace] = None
@@ -225,6 +226,16 @@ class BriefResponse(BaseModel):
     meal_intelligence: Optional["MealIntelligencePack"] = None
     decision_ranking: Optional["DecisionRanking"] = None
     check_in_summary: Optional[dict[str, Any]] = None
+
+
+class PreferencesOut(BaseModel):
+    calorie_target: float
+    source: str = "default"  # user | default
+    display_name: Optional[str] = None
+
+
+class PreferencesUpdate(BaseModel):
+    calorie_target: float = Field(ge=800, le=6000)
 
 
 class CheckInCreate(BaseModel):

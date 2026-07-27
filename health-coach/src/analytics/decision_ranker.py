@@ -14,7 +14,6 @@ from sqlalchemy.orm import Session
 
 from src.analytics.check_ins import check_in_summary
 from src.analytics.meal_intelligence import build_bni_pack
-from src.db.config import settings
 from src.db.models import DailySummary, User
 from src.models.schemas import DecisionOpportunity, DecisionRanking
 

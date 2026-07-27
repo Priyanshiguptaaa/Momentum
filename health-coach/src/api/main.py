@@ -51,6 +51,7 @@ from src.coaching.interventions import (
 )
 from src.coaching.llm_chat import ask_health_question
 from src.coaching.expert_panel import fallback_expert_panel
+from src.coaching.preferences import get_calorie_target, get_preferences, update_preferences
 from src.coaching.llm_coach import build_coaching_pack, build_plateau_investigation
 from src.db.config import ROOT_DIR, settings
 from src.db.models import DailySummary, User
@@ -74,6 +75,8 @@ from src.models.schemas import (
     CheckInCreate,
     CheckInOut,
     DecisionRanking,
+    PreferencesOut,
+    PreferencesUpdate,
     MealEventCreate,
     MealEventOut,
     MealIntelligencePack,
@@ -133,8 +136,10 @@ def get_brief(
 ) -> BriefResponse:
     """Home brief: recent series, latest weight explanation, and known patterns."""
     user = db.scalar(select(User).order_by(User.id).limit(1))
+    prefs = get_preferences(db)
+    target = float(prefs["calorie_target"])
     if user is None:
-        return BriefResponse(calorie_target=settings.calorie_target)
+        return BriefResponse(calorie_target=target, calorie_target_source=prefs["source"])
 
     latest = db.scalar(
         select(DailySummary)
@@ -144,7 +149,8 @@ def get_brief(
     )
     if latest is None:
         return BriefResponse(
-            calorie_target=settings.calorie_target,
+            calorie_target=target,
+            calorie_target_source=prefs["source"],
             patterns=[
                 PhysiologyPatternOut(**pattern_to_dict(p))
                 for p in list_patterns_for_user(db, user.id)
@@ -225,7 +231,8 @@ def get_brief(
 
     return BriefResponse(
         as_of=latest.date,
-        calorie_target=settings.calorie_target,
+        calorie_target=target,
+        calorie_target_source=prefs["source"],
         series=series,
         explanation=explanation,
         reasoning_trace=reasoning_trace,
@@ -267,6 +274,29 @@ def get_coaching(db: Session = Depends(get_db)) -> CoachingPack:
 )
 def get_plateau(db: Session = Depends(get_db)) -> PlateauInvestigation:
     return build_plateau_investigation(db)
+
+
+@app.get(
+    "/preferences",
+    response_model=PreferencesOut,
+    dependencies=[Depends(require_sync_api_key)],
+)
+def read_preferences(db: Session = Depends(get_db)) -> PreferencesOut:
+    return PreferencesOut(**get_preferences(db))
+
+
+@app.put(
+    "/preferences",
+    response_model=PreferencesOut,
+    dependencies=[Depends(require_sync_api_key)],
+)
+def put_preferences(body: PreferencesUpdate, db: Session = Depends(get_db)) -> PreferencesOut:
+    try:
+        return PreferencesOut(**update_preferences(db, calorie_target=body.calorie_target))
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get(

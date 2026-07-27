@@ -16,6 +16,7 @@ from src.coaching.expert_panel import (
 )
 from src.coaching.food_staples import list_food_staples, staple_to_dict, update_staple_quality
 from src.coaching.llm_reasoner import build_evidence_pack
+from src.coaching.preferences import get_calorie_target
 from src.db.config import settings
 from src.models.schemas import (
     CoachingPack,
@@ -332,7 +333,7 @@ def build_coaching_pack(db: Session, *, include_diet: bool = True) -> CoachingPa
         "check_ins": check_ins_pack,
         "decision_ranking": decisions,
         "include_diet_sketch": include_diet,
-        "calorie_target": settings.calorie_target,
+        "calorie_target": get_calorie_target(db),
         "coaching_mode": "decision_quality_optimizer",
     }
     client = OpenAI(api_key=settings.openai_api_key)

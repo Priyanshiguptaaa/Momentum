@@ -15,6 +15,7 @@ from src.analytics.patterns import list_patterns_for_user, pattern_to_dict
 from src.analytics.reasoning_trace import build_observation
 from src.coaching.interventions import intervention_to_dict, list_interventions
 from src.coaching.food_staples import list_food_staples, staple_to_dict
+from src.coaching.preferences import get_calorie_target
 from src.db.config import settings
 from src.db.models import DailySummary, User
 from src.models.schemas import (
@@ -152,7 +153,7 @@ def build_evidence_pack(
         today = prior[-1] if prior else rows[-1]
 
     history = [r for r in rows if r.date <= today.date][-30:]
-    observation = build_observation(today, history, calorie_target=settings.calorie_target)
+    observation = build_observation(today, history, calorie_target=get_calorie_target(db))
     patterns = [pattern_to_dict(p) for p in list_patterns_for_user(db, user_id)]
     try:
         interventions = [intervention_to_dict(i) for i in list_interventions(db)[:8]]
@@ -188,6 +189,7 @@ def build_evidence_pack(
             "calorie_target is the user's planned intake target, NOT measured maintenance/TDEE"
         ),
         "observation": observation.model_dump(mode="json"),
+        "calorie_target": get_calorie_target(db),
         "recent_days": days,
         "personalized_patterns": patterns,
         "interventions": interventions,
@@ -226,7 +228,7 @@ def _normalize_probs(hyps: list[HypothesisDebate]) -> list[HypothesisDebate]:
 def _parse_trace(raw: dict[str, Any], evidence: dict[str, Any]) -> ReasoningTrace:
     obs = evidence.get("observation") or raw.get("observation") or {}
     if isinstance(obs, dict) and "calorie_target" not in obs:
-        obs["calorie_target"] = settings.calorie_target
+        obs["calorie_target"] = evidence.get("calorie_target") or settings.calorie_target
 
     hyps_raw = raw.get("hypotheses") or []
     debates: list[HypothesisDebate] = []

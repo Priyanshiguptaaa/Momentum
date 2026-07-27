@@ -22,6 +22,8 @@ HC_DEFAULT_USER_NAME=Demo User
 HC_CALORIE_TARGET=1700
 ```
 
+`HC_CALORIE_TARGET` is only a **seed default**. Change your real target in the app (⚙ → Daily calorie target) or `PUT /preferences`. It is stored per user in the database.
+
 `PORT` is provided by Railway automatically.
 
 ## 3. After deploy

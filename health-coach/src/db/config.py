@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     database_url: str = DEFAULT_DB_URL
     default_user_email: str = "demo@healthcoach.local"
     default_user_name: str = "Demo User"
-    calorie_target: float = 1700.0
+    calorie_target: float = 1700.0  # seed default only; prefer users.calorie_target
     lookback_days: int = 14
     # Shared secret for Health Auto Export → POST /sync/health-auto-export
     # Leave empty only for local prototyping on a trusted network.

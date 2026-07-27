@@ -29,6 +29,8 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    # Planned daily intake (kcal). None → fall back to HC_CALORIE_TARGET seed default.
+    calorie_target: Mapped[Optional[float]] = mapped_column(Float)
 
     measurements: Mapped[list[Measurement]] = relationship(back_populates="user")
     daily_contexts: Mapped[list[DailyContext]] = relationship(back_populates="user")
