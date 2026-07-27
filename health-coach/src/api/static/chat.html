@@ -972,13 +972,13 @@
     document.getElementById("saveKey").onclick = () => {
       const v = apiKeyInput.value.trim();
       if (!v) return;
-      sessionStorage.setItem(KEY, v);
+      storeSet(KEY, v);
       refreshKeyStatus();
       loadBrief();
       if (!messages.querySelector(".msg")) addMsg("You’re set — ask anything about your recent data.", "meta");
     };
     document.getElementById("clearKey").onclick = () => {
-      sessionStorage.removeItem(KEY);
+      storeRemove(KEY);
       apiKeyInput.value = "";
       refreshKeyStatus();
       renderHomeEmpty("Save your sync API key to load your morning brief.");
