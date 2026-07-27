@@ -1,5 +1,7 @@
 # Railway config at repo root — forces Dockerfile build (not Railpack).
 # Alternative: set service Root Directory to `health-coach` in the Railway UI.
+# Do NOT set startCommand here with bare $PORT — Railway may not expand it.
+# The Dockerfile CMD uses: sh -c "... --port ${PORT:-8000} ..."
 
 [build]
 builder = "DOCKERFILE"
@@ -9,4 +11,3 @@ dockerfilePath = "Dockerfile"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
-startCommand = "uvicorn src.api.main:app --host 0.0.0.0 --port $PORT --app-dir ."
