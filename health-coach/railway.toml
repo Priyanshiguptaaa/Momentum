@@ -1,0 +1,11 @@
+# Deploy Momentum health-coach to Railway free try-out tier.
+# Docs: docs/RAILWAY.md
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
