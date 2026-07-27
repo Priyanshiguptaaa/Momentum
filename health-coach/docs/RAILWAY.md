@@ -4,9 +4,12 @@ Use Railway’s **For trying things out** plan ($1 credits, 0.5 GB RAM, 0.5 GB v
 
 ## 1. Create project
 
-1. [railway.app](https://railway.app) → New Project → Deploy from GitHub (this repo) **or** empty project + local `railway up` from `health-coach/`.
-2. Root directory / service path: `health-coach` (where the Dockerfile lives).
-3. Add a **Volume** mounted at `/data` (uses the 0.5 GB storage allotment).
+1. [railway.app](https://railway.app) → New Project → Deploy from GitHub (this repo).
+2. **Important — pick ONE:**
+   - **Easiest:** leave Root Directory empty — the repo-root `Dockerfile` + `railway.toml` build `health-coach/`.
+   - **Or:** set Root Directory / service path to `health-coach` (uses `health-coach/Dockerfile`).
+3. In service **Settings → Build**, confirm builder is **Dockerfile** (not Railpack). If it still says Railpack, set Dockerfile path to `Dockerfile`.
+4. Add a **Volume** mounted at `/data` (optional; uses the 0.5 GB allotment).
 
 ## 2. Environment variables
 
@@ -22,7 +25,7 @@ HC_DEFAULT_USER_NAME=Demo User
 HC_CALORIE_TARGET=1700
 ```
 
-`HC_CALORIE_TARGET` is only a **seed default**. Change your real target in the app (⚙ → Daily calorie target) or `PUT /preferences`. It is stored per user in the database.
+`HC_CALORIE_TARGET` is only a **seed default**. The app prefers a target inferred from your body data (intake + weight trend). Override in the UI only if you want.
 
 `PORT` is provided by Railway automatically.
 

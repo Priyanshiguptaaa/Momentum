@@ -1,0 +1,13 @@
+# Ignore local junk; keep image small.
+.git
+.venv
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/*.pyc
+**/.env
+**/.env.*
+!**/.env.example
+**/data/processed/*.db
+**/data/processed/*.sqlite*
+health-coach/.venv

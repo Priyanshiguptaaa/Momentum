@@ -1,0 +1,12 @@
+# Railway config at repo root — forces Dockerfile build (not Railpack).
+# Alternative: set service Root Directory to `health-coach` in the Railway UI.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+startCommand = "uvicorn src.api.main:app --host 0.0.0.0 --port $PORT --app-dir ."
