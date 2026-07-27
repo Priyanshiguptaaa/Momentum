@@ -1,12 +1,13 @@
-# Health Coach — Personalized AI Health Intelligence Backend
+# Momentum — AI health coach
 
-Momentum is an **AI health scientist**, not another tracker.
+Momentum is an **AI health scientist / coach**, not another tracker.
 
-It observes longitudinal data, forms competing hypotheses, treats life as experiments,
-updates beliefs, and explains reasoning in human language — gradually building a
-personalized model of one person’s physiology.
+It observes your data, forms competing hypotheses, ranks the next experiment,
+and explains reasoning — building a personalized model of *your* physiology.
 
-The statistical engine calculates evidence; the LLM communicates it.
+**New here?** Start with the simple guide: **[docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)**  
+(setup Health sync, how to use Home/Ask, when to manually export).
+
 Philosophy: [docs/PHILOSOPHY.md](docs/PHILOSOPHY.md).
 
 ## Version 0 success criterion
